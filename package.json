@@ -1,0 +1,28 @@
+{
+  "name": "billing-system-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HerbertK-93/billing-system-server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/HerbertK-93/billing-system-server/issues"
+  },
+  "homepage": "https://github.com/HerbertK-93/billing-system-server#readme",
+  "dependencies": {
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "firebase-admin": "^13.0.1",
+    "pdfkit": "^0.15.1"
+  },
+  "description": ""
+}
