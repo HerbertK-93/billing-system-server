@@ -43,7 +43,7 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
 
     // Header Section
     doc.fontSize(25).text('INNOVATION CONSORTIUM', { align: 'center' });
-    doc.fontSize(15).text('Your Trusted Billing Partner', { align: 'center', italic: true });
+    doc.fontSize(15).text('We Innovate', { align: 'center', italic: true });
     doc.fontSize(10).text('Location: Bweyogerere, Butto', { align: 'center' });
     doc.fontSize(10).text('Email: innovationconsortium@gmail.com', { align: 'center' });
     doc.fontSize(10).text('Tel: +256 753 434679', { align: 'center' });
