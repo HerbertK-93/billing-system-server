@@ -35,7 +35,10 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     const invoiceData = invoiceDoc.data();
 
     // Generate PDF
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = new PDFDocument({
+      margin: 50,
+      layout: 'landscape', // Change page orientation to landscape
+    });
     const filePath = path.join(__dirname, `invoice_${invoiceId}.pdf`);
     const stream = fs.createWriteStream(filePath);
 
@@ -57,41 +60,73 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     doc.text(`Date: ${invoiceData.date || 'N/A'}`);
     doc.moveDown();
 
-    // Items Section
-    doc.fontSize(14).text('Items:', { underline: true });
-    doc.moveDown(0.5);
+    // Table Headers
+    const tableTop = doc.y;
+    const itemMargin = 5;
+
+    // Define column widths (fit landscape width)
+    const pageWidth = 700; // Landscape page width
+    const columnCount = 5;
+    const colWidth = pageWidth / columnCount;
+
+    const startX = doc.x;
+
+    // Draw Table Headers
+    doc.fontSize(10).font('Helvetica-Bold');
+    const headers = ['Name', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
+    headers.forEach((header, index) => {
+      const colX = startX + colWidth * index;
+      doc.rect(colX, tableTop, colWidth, 25).stroke();
+      doc.text(header, colX + itemMargin, tableTop + 7, {
+        width: colWidth - itemMargin * 2,
+        align: 'center',
+      });
+    });
+
+    // Table Rows
+    let rowY = tableTop + 25;
+    doc.font('Helvetica').fontSize(10);
 
     if (Array.isArray(invoiceData.items)) {
-      const tableHeaders = ['Name', 'Description', 'Quantity', 'Price'];
-      const colWidths = [150, 200, 100, 100];
+      invoiceData.items.forEach((item) => {
+        const rowHeight = 25;
 
-      doc.fontSize(12);
-      doc.text(`${tableHeaders.join(' | ')}`, { underline: true });
+        const cells = [
+          item.name || 'N/A',
+          item.description || 'N/A',
+          `${item.quantity || 0}`,
+          `UGX ${item.rate?.toFixed(2) || '0.00'}`,
+          `UGX ${item.amount?.toFixed(2) || '0.00'}`,
+        ];
 
-      invoiceData.items.forEach((item, index) => {
-        doc.text(
-          `${index + 1}. ${item.name || 'N/A'} | ${item.description || 'N/A'} | Quantity: ${item.quantity || 0} | Price: ${item.price || 0}`
-        );
+        cells.forEach((text, index) => {
+          const colX = startX + colWidth * index;
+          doc.rect(colX, rowY, colWidth, rowHeight).stroke();
+          doc.text(text, colX + itemMargin, rowY + 7, {
+            width: colWidth - itemMargin * 2,
+            align: 'center',
+          });
+        });
+
+        rowY += rowHeight;
       });
     } else {
-      doc.fontSize(12).text('No items available.');
+      doc.text('No items available.', startX, rowY + 5);
     }
 
-    // Financial Summary Section
+    // Grand Total
+    rowY += 10;
+    doc.fontSize(12).font('Helvetica-Bold');
+    doc.text(`Grand Total: UGX ${invoiceData.grandTotal?.toFixed(2) || '0.00'}`, startX, rowY, {
+      align: 'right',
+      width: pageWidth,
+    });
+
     doc.moveDown(2);
-    doc.fontSize(14).text('Summary:', { underline: true });
-    doc.fontSize(12).text(`Other Expenses: ${invoiceData.otherExpenses || 'N/A'}`);
-    doc.text(`Immediate Investment: ${invoiceData.immediateInvestment || 'N/A'}`);
-    doc.text(`Days to Supply: ${invoiceData.daysToSupply || 'N/A'}`);
-    doc.text(`Percentage Interest Charged: ${invoiceData.percentageInterestCharged || 'N/A'}`);
-    doc.text(`Rate: ${invoiceData.rate || 'N/A'}`);
-    doc.text(`Total Investment: ${invoiceData.totalInvestment || 'N/A'}`);
-    doc.text(`Total Profit: ${invoiceData.totalProfit || 'N/A'}`);
-    doc.moveDown(2);
-    doc.fontSize(10).text(
-      'Thank you for doing business with INNOVATION CONSORTIUM.',
-      { align: 'center', italic: true }
-    );
+    doc.fontSize(10).text('Thank you for doing business with INNOVATION CONSORTIUM.', {
+      align: 'center',
+      italic: true,
+    });
 
     doc.end();
 
