@@ -57,6 +57,7 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     doc.text(`Client Name: ${invoiceData.clientName || 'N/A'}`);
     doc.text(`Client Address: ${invoiceData.clientAddress || 'N/A'}`);
     doc.text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`);
+    doc.text(`Category: ${invoiceData.category || 'Uncategorized'}`); // Include category
     doc.text(`Date: ${invoiceData.date || 'N/A'}`);
     doc.moveDown();
 
