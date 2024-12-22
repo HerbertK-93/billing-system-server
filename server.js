@@ -57,7 +57,7 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     doc.text(`Client Name: ${invoiceData.clientName || 'N/A'}`);
     doc.text(`Client Address: ${invoiceData.clientAddress || 'N/A'}`);
     doc.text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`);
-    doc.text(`Category: ${invoiceData.category || 'Uncategorized'}`); // Include category
+    doc.text(`Category: ${invoiceData.category || 'Uncategorized'}`);
     doc.text(`Date: ${invoiceData.date || 'N/A'}`);
     doc.moveDown();
 
@@ -141,6 +141,95 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     });
   } catch (error) {
     console.error('Error generating invoice:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to generate and download a summary as a PDF
+app.get('/downloadSummary/:summaryId', async (req, res) => {
+  const summaryId = req.params.summaryId;
+
+  try {
+    const summaryDoc = await db.collection('summary').doc(summaryId).get();
+
+    if (!summaryDoc.exists) {
+      return res.status(404).json({ error: 'Summary not found' });
+    }
+
+    const summaryData = summaryDoc.data();
+
+    // Generate PDF
+    const doc = new PDFDocument();
+    const filePath = path.join(__dirname, `summary_${summaryId}.pdf`);
+    const stream = fs.createWriteStream(filePath);
+
+    doc.pipe(stream);
+
+    // Add Summary Header
+    doc.fontSize(25).text('INNOVATION CONSORTIUM', { align: 'center' });
+    doc.fontSize(15).text('We Innovate', { align: 'center', italic: true });
+    doc.fontSize(10).text('Location: Bweyogerere, Butto', { align: 'center' });
+    doc.fontSize(10).text('Email: innovationconsortium@gmail.com', { align: 'center' });
+    doc.fontSize(10).text('Tel: +256 753 434679', { align: 'center' });
+    doc.moveDown(2);
+
+    // Client Information
+    doc.fontSize(14).text('Client Information:', { underline: true });
+    doc.fontSize(12).text(`Name: ${summaryData.clientName || 'Unknown'}`);
+    doc.text(`Address: ${summaryData.clientAddress || 'Unknown'}`);
+    doc.text(`Email: ${summaryData.clientEmail || 'Unknown'}`);
+    doc.text(`Category: ${summaryData.category || 'Unknown'}`);
+    doc.text(`Date: ${summaryData.date || 'Unknown'}`);
+    doc.moveDown();
+
+    // Items Section
+    doc.fontSize(14).text('Items:', { underline: true });
+    if (Array.isArray(summaryData.items)) {
+      summaryData.items.forEach((item, index) => {
+        doc.fontSize(12).text(`Item ${index + 1}:`);
+        doc.text(`  Name: ${item.name || 'Unknown'}`);
+        doc.text(`  Description: ${item.description || 'Unknown'}`);
+        doc.text(`  Quantity: ${item.quantity || 0}`);
+        doc.text(`  Days to Pay: ${item.daysToSupply || 0}`);
+        doc.text(`  % Interest Charged: ${item.interestPercentage?.toFixed(2) || '0.00'}%`);
+        doc.text(`  Market Price: UGX ${item.marketPrice?.toFixed(2) || '0.00'}`);
+        doc.text(`  Other Expenses: UGX ${item.otherExpenses?.toFixed(2) || '0.00'}`);
+        doc.text(`  Immediate Investment: UGX ${item.immediateInvestment?.toFixed(2) || '0.00'}`);
+        doc.text(`  Total Investment: UGX ${item.totalInvestment?.toFixed(2) || '0.00'}`);
+        doc.text(`  % Markup: ${item.markupPercentage?.toFixed(2) || '0.00'}%`);
+        doc.text(`  Profit: UGX ${item.profit?.toFixed(2) || '0.00'}`);
+        doc.text(`  Rate: UGX ${item.rate?.toFixed(2) || '0.00'}`);
+        doc.text(`  Amount: UGX ${item.amount?.toFixed(2) || '0.00'}`);
+        doc.moveDown();
+      });
+    } else {
+      doc.text('No items available.');
+    }
+
+    // Grand Total
+    doc.moveDown();
+    doc.fontSize(14).text(
+      `Grand Total: UGX ${summaryData.grandTotal?.toFixed(2) || '0.00'}`
+    );
+
+    // Footer Section
+    doc.moveDown(2);
+    doc.fontSize(10).text('Thank you for using our services.', {
+      align: 'center',
+      italic: true,
+    });
+
+    doc.end();
+
+    stream.on('finish', () => {
+      res.download(filePath, `summary_${summaryId}.pdf`, (err) => {
+        if (!err) {
+          fs.unlinkSync(filePath);
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error generating summary:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
