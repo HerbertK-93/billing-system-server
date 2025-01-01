@@ -106,7 +106,6 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
       throw new Error(`Watermark image not found at ${watermarkPath}`);
     }
 
-    // Get the center position for the watermark
     const pageWidth = 842; // Standard landscape A4 page width in points
     const pageHeight = 595; // Standard landscape A4 page height in points
     const watermarkWidth = 400; // Desired width of the watermark
@@ -126,7 +125,7 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     doc.fontSize(15).text('Think Different, Live Different', { align: 'center', italic: true });
     doc.fontSize(10).text('Location: Bweyogerere, Plot no. 732 Jinja Rd.', { align: 'center' });
     doc.fontSize(10).text('Address: P.O BOX 31054 Kamapala (U)', { align: 'center' });
-    doc.fontSize(10).text('Tel: +256 753 434679 +256 905 521', { align: 'center' });
+    doc.fontSize(10).text('Tel: +256 753 434679  +256 772 905521', { align: 'center' });
     doc.moveDown(2);
 
     // Client and Invoice Details Section
@@ -208,34 +207,44 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     });
 
     // Divider line
-doc.moveDown(0.5);
+    doc.moveDown(0.5);
+    doc.lineWidth(1).moveTo(doc.x, doc.y).lineTo(doc.page.width - doc.x, doc.y).stroke();
+
+    doc.moveDown(1);
+    doc.fontSize(10).text('Discount', { align: 'left', italic: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica-Bold').text('Terms of payment:  All accounts are due on demand', { align: 'left' });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica-Bold').text('30% to be paid when picking the items.', { align: 'left' });
+
+
+// Add Signature Space
+doc.moveDown(1);
+doc.fontSize(12).text('Signature:', {
+  align: 'left',
+});
+
+// Path to the signature image
+const signatureImagePath = path.join(__dirname, 'public/assets/mdsign.png');
+if (fs.existsSync(signatureImagePath)) {
+  // Place the signature image below the label
+  doc.image(signatureImagePath, doc.x, doc.y, {
+    width: 200, // Adjust width as needed
+    height: 50, // Adjust height as needed
+  });
+  doc.moveDown(3); // Add some space after the image
+} else {
+  console.error('Signature image not found at:', signatureImagePath);
+}
+
 doc.lineWidth(1)
   .moveTo(doc.x, doc.y)
-  .lineTo(doc.page.width - doc.x, doc.y)
+  .lineTo(doc.x + 200, doc.y)
   .stroke();
+doc.moveDown(2);
+
 
     doc.moveDown(1);
-doc.fontSize(10).text('Discount', { align: 'left', italic: true });
-doc.moveDown(0.5);
-doc.fontSize(10).font('Helvetica-Bold').text('Terms of payment', { align: 'left' });
-doc.moveDown(0.5);
-doc.fontSize(10).font('Helvetica-Bold').text('All accounts are due on demand.', { align: 'left' });
-doc.moveDown(0.5);
-doc.fontSize(10).font('Helvetica-Bold').text('30% to be paid when picking the items.', { align: 'left' });
-
-    // Add Signature Space
-    doc.moveDown(1);
-    doc.fontSize(12).text('Signature:', {
-      align: 'left',
-    });
-    doc.moveDown(2);
-    doc.lineWidth(1)
-      .moveTo(doc.x, doc.y)
-      .lineTo(doc.x + 200, doc.y)
-      .stroke();
-    doc.moveDown(2);
-
-    doc.moveDown(2);
     doc.fontSize(10).text('Thank you for doing business with INNOVATION CONSORTIUM.', {
       align: 'center',
       italic: true,
@@ -253,6 +262,84 @@ doc.fontSize(10).font('Helvetica-Bold').text('30% to be paid when picking the it
     });
   } catch (error) {
     console.error('Error generating invoice:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+// Endpoint to generate and download a summary as a PDF
+app.get('/downloadSummary/:summaryId', async (req, res) => {
+  const summaryId = req.params.summaryId;
+
+  try {
+    // Fetch summary data from Firestore
+    const summaryDoc = await db.collection('summary').doc(summaryId).get();
+
+    if (!summaryDoc.exists) {
+      return res.status(404).json({ error: 'Summary not found' });
+    }
+
+    const summaryData = summaryDoc.data();
+
+    // Generate PDF
+    const doc = new PDFDocument({ margin: 50 });
+    const filePath = path.join(__dirname, `summary_${summaryId}.pdf`);
+    const stream = fs.createWriteStream(filePath);
+
+    doc.pipe(stream);
+
+    // Header Section
+    doc.fontSize(25).text('INNOVATION CONSORTIUM', { align: 'center' });
+    doc.fontSize(15).text('Summary Report', { align: 'center', underline: true });
+    doc.fontSize(12).moveDown().text(`Summary ID: ${summaryId}`, { align: 'left' });
+
+    // Client Information
+    doc.moveDown().fontSize(16).text('Client Information', { underline: true });
+    doc.fontSize(12)
+      .text(`Client Name: ${summaryData.clientName || 'Unknown'}`)
+      .text(`Client Address: ${summaryData.clientAddress || 'Unknown'}`)
+      .text(`Client Email: ${summaryData.clientEmail || 'Unknown'}`)
+      .text(`Category: ${summaryData.category || 'Unknown'}`)
+      .text(`Date: ${summaryData.date || 'Unknown'}`);
+
+    // Items Section
+    const items = summaryData.items || [];
+    if (items.length > 0) {
+      doc.moveDown().fontSize(16).text('Items', { underline: true });
+
+      items.forEach((item, index) => {
+        doc.fontSize(12)
+          .moveDown(0.5)
+          .text(`Item ${index + 1}`)
+          .text(`Number: ${item.number || 'Unknown'}`)
+          .text(`Description: ${item.description || 'Unknown'}`)
+          .text(`Quantity: ${item.quantity || 0}`)
+          .text(`Days to Supply: ${item.daysToSupply || 0}`)
+          .text(`% Interest Charged: ${item.interestPercentage || 0}%`)
+          .text(`Market Price: UGX ${item.marketPrice?.toFixed(2) || '0.00'}`)
+          .text(`Other Expenses: UGX ${item.otherExpenses?.toFixed(2) || '0.00'}`)
+          .text(`Immediate Investment: UGX ${item.immediateInvestment?.toFixed(2) || '0.00'}`)
+          .text(`Total Investment: UGX ${item.totalInvestment?.toFixed(2) || '0.00'}`)
+          .text(`% Markup: ${item.markupPercentage || 0}%`)
+          .text(`Profit: UGX ${item.profit?.toFixed(2) || '0.00'}`)
+          .text(`Rate: UGX ${item.rate?.toFixed(2) || '0.00'}`)
+          .text(`Amount: UGX ${item.amount?.toFixed(2) || '0.00'}`);
+      });
+    } else {
+      doc.moveDown().text('No items available.', { align: 'left' });
+    }
+
+    doc.end();
+
+    // Wait for PDF generation and send the file
+    stream.on('finish', () => {
+      res.download(filePath, `summary_${summaryId}.pdf`, (err) => {
+        if (!err) {
+          fs.unlinkSync(filePath); // Delete the file after sending
+        }
+      });
+    });
+  } catch (error) {
+    console.error('Error generating summary:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
