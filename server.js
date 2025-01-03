@@ -100,28 +100,18 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
 
     doc.pipe(stream);
 
-    // Add watermark (Company Logo)
-    const watermarkPath = path.join(__dirname, 'public/assets/consortiumlogo-removebg-preview(1).png');
-    if (!fs.existsSync(watermarkPath)) {
-      throw new Error(`Watermark image not found at ${watermarkPath}`);
+    // Add logo in the top-left corner
+    const logoPath = path.join(__dirname, 'public/assets/cornerlogo.png');
+    if (!fs.existsSync(logoPath)) {
+      throw new Error(`Logo image not found at ${logoPath}`);
     }
 
-    const pageWidth = 842; // Standard landscape A4 page width in points
-    const pageHeight = 595; // Standard landscape A4 page height in points
-    const watermarkWidth = 400; // Desired width of the watermark
-    const watermarkHeight = 200; // Desired height of the watermark
-    const centerX = (pageWidth - watermarkWidth) / 2;
-    const centerY = (pageHeight - watermarkHeight) / 2;
-
-    // Add the watermark image
-    doc.image(watermarkPath, centerX, centerY, {
-      width: watermarkWidth,
-      height: watermarkHeight,
-      opacity: 0.1, // More faint for a modern look
+    doc.image(logoPath, 50, 50, {
+      width: 100, // Set width for the logo
     });
 
     // Header Section
-    doc.fontSize(25).text('INNOVATION CONSORTIUM', { align: 'center' });
+    doc.fontSize(25).text('INNOVATION CONSORTIUM LIMITED', { align: 'center' });
     doc.fontSize(15).text('Think Different, Live Different', { align: 'center', italic: true });
     doc.fontSize(10).text('Location: Bweyogerere, Plot no. 732 Jinja Rd.', { align: 'center' });
     doc.fontSize(10).text('Address: P.O BOX 31054 Kamapala (U)', { align: 'center' });
@@ -129,126 +119,125 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     doc.moveDown(2);
 
     // Client and Invoice Details Section
-    doc.fontSize(12).text(`Invoice ID: ${invoiceId}`);
-    doc.text(`Client Name: ${invoiceData.clientName || 'N/A'}`);
-    doc.text(`Client Address: ${invoiceData.clientAddress || 'N/A'}`);
-    doc.text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`);
-    doc.text(`Category: ${invoiceData.category || 'Uncategorized'}`);
-    doc.text(`Date: ${invoiceData.date || 'N/A'}`);
-    doc.moveDown();
+doc.fontSize(12)
+.text(`Client Name: ${invoiceData.clientName || 'N/A'}`, 50, doc.y) // Start from the left
+.text(`Client Address: ${invoiceData.clientAddress || 'N/A'}`)
+.text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`)
 
-    // Table Headers
-    const tableTop = doc.y;
-    const itemMargin = 5;
+// Ensure the document object is initialized and has a valid `y` position
+const tableStartY = doc.y; // Keep the current y position for reference
 
-    // Define column widths (fit landscape width)
-    const tableWidth = 700; // Adjust width specifically for table layout
-    const columnCount = 5;
-    const colWidth = tableWidth / columnCount;
-    const startX = doc.x;
+// Invoice ID and Date (unchanged positions)
+doc.text(`Invoice ID: ${invoiceId}`, doc.page.width - 200, tableStartY - 60, { align: 'right' });
+doc.text(`Date: ${invoiceData.date || 'N/A'}`, doc.page.width - 200, tableStartY - 40, { align: 'right' });
 
-    // Draw Table Headers
-    doc.fontSize(10).font('Helvetica-Bold');
-    const headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
-    headers.forEach((header, index) => {
-      const colX = startX + colWidth * index;
-      doc.rect(colX, tableTop, colWidth, 25).stroke();
-      doc.text(header, colX + itemMargin, tableTop + 7, {
+// Define the table's starting X position
+const tableLeftMargin = doc.page.margins.left;
+const tableRightMargin = doc.page.margins.right;
+const availableTableWidth = doc.page.width - tableLeftMargin - tableRightMargin;
+const columnCount = 5;
+const colWidth = availableTableWidth / columnCount;
+const tableTop = tableStartY + 20;
+const itemMargin = 5;
+
+// Draw Table Headers
+doc.fontSize(10).font('Helvetica-Bold');
+const headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
+headers.forEach((header, index) => {
+  const colX = tableLeftMargin + colWidth * index;
+  doc.rect(colX, tableTop, colWidth, 25).stroke();
+  doc.text(header, colX + itemMargin, tableTop + 7, {
+    width: colWidth - itemMargin * 2,
+    align: 'center',
+  });
+});
+
+// Table Rows
+let rowY = tableTop + 25;
+doc.font('Helvetica').fontSize(10);
+
+if (Array.isArray(invoiceData.items)) {
+  invoiceData.items.forEach((item) => {
+    const rowHeight = 25;
+
+    const cells = [
+      item.number || 'N/A',
+      item.description || 'N/A',
+      `${item.quantity || 0}`,
+      `${item.rate?.toFixed(2) || '0.00'}`,
+      `${item.amount?.toFixed(2) || '0.00'}`,
+    ];
+
+    cells.forEach((text, index) => {
+      const colX = tableLeftMargin + colWidth * index;
+      doc.rect(colX, rowY, colWidth, rowHeight).stroke();
+      doc.text(text, colX + itemMargin, rowY + 7, {
         width: colWidth - itemMargin * 2,
         align: 'center',
       });
     });
 
-    // Table Rows
-    let rowY = tableTop + 25;
-    doc.font('Helvetica').fontSize(10);
-
-    if (Array.isArray(invoiceData.items)) {
-      invoiceData.items.forEach((item) => {
-        const rowHeight = 25;
-
-        const cells = [
-          item.number || 'N/A',
-          item.description || 'N/A',
-          `${item.quantity || 0}`,
-          `UGX ${item.rate?.toFixed(2) || '0.00'}`,
-          `UGX ${item.amount?.toFixed(2) || '0.00'}`,
-        ];
-
-        cells.forEach((text, index) => {
-          const colX = startX + colWidth * index;
-          doc.rect(colX, rowY, colWidth, rowHeight).stroke();
-          doc.text(text, colX + itemMargin, rowY + 7, {
-            width: colWidth - itemMargin * 2,
-            align: 'center',
-          });
-        });
-
-        rowY += rowHeight;
-      });
-    } else {
-      doc.text('No items available.', startX, rowY + 5);
-    }
-
-    // Grand Total
-    const grandTotal = invoiceData.grandTotal || 0;
-    rowY += 10;
-    doc.fontSize(12).font('Helvetica-Bold');
-    doc.text(`Grand Total: UGX ${grandTotal.toFixed(2)}`, startX, rowY, {
-      align: 'left',
-      width: pageWidth,
-    });
-
-    // Grand Total in Words
-    doc.moveDown(0.5);
-    doc.fontSize(10).font('Helvetica-Bold');
-    doc.text(`Amount In Words: ${numberToWords(Math.floor(grandTotal))} Uganda Shillings Only`, {
-      align: 'left',
-    });
-
-    // Divider line
-    doc.moveDown(0.5);
-    doc.lineWidth(1).moveTo(doc.x, doc.y).lineTo(doc.page.width - doc.x, doc.y).stroke();
-
-    doc.moveDown(1);
-    doc.fontSize(10).text('Discount', { align: 'left', italic: true });
-    doc.moveDown(0.5);
-    doc.fontSize(10).font('Helvetica-Bold').text('Terms of payment:  All accounts are due on demand', { align: 'left' });
-    doc.moveDown(0.5);
-    doc.fontSize(10).font('Helvetica-Bold').text('30% to be paid when picking the items.', { align: 'left' });
-
-
-// Add Signature Space
-doc.moveDown(1);
-doc.fontSize(12).text('Signature:', {
-  align: 'left',
-});
-
-// Path to the signature image
-const signatureImagePath = path.join(__dirname, 'public/assets/mdsign.png');
-if (fs.existsSync(signatureImagePath)) {
-  // Place the signature image below the label
-  doc.image(signatureImagePath, doc.x, doc.y, {
-    width: 200, // Adjust width as needed
-    height: 50, // Adjust height as needed
+    rowY += rowHeight;
   });
-  doc.moveDown(3); // Add some space after the image
 } else {
-  console.error('Signature image not found at:', signatureImagePath);
+  doc.text('No items available.', tableLeftMargin, rowY + 5);
 }
 
-doc.lineWidth(1)
-  .moveTo(doc.x, doc.y)
-  .lineTo(doc.x + 200, doc.y)
-  .stroke();
+// Add Total Amount in the Table
+const totalAmount = invoiceData.totalAmount || 0;
+const totalAmountRow = [
+  'Total Amount',
+  '',
+  '',
+  '',
+  `${totalAmount.toFixed(2)}`,
+];
+
+totalAmountRow.forEach((text, index) => {
+  const colX = tableLeftMargin + colWidth * index;
+  doc.rect(colX, rowY, colWidth, 25).stroke();
+  doc.font(index === 0 || index === 4 ? 'Helvetica-Bold' : 'Helvetica');
+  doc.text(text, colX + itemMargin, rowY + 7, {
+    width: colWidth - itemMargin * 2,
+    align: 'center',
+  });
+});
+
+rowY += 25;
+
+ // Grand Total in Words
 doc.moveDown(2);
+doc.fontSize(12).font('Helvetica-Bold');
+doc.text(
+  `Total amount in words: ${numberToWords(Math.floor(totalAmount))} Uganda Shillings Only`,
+  50, // Explicitly setting the left margin
+  doc.y
+);
 
+// Signature Section
+doc.moveDown(2);
+doc.fontSize(12).text('Signature:', 50, doc.y); // Explicitly setting the left margin
 
-    doc.moveDown(1);
-    doc.fontSize(10).text('Thank you for doing business with INNOVATION CONSORTIUM.', {
-      align: 'center',
-      italic: true,
-    });
+// Add signature image, ensuring it is aligned to the left
+const signatureImagePath = path.join(__dirname, 'public/assets/mdsign.png');
+if (fs.existsSync(signatureImagePath)) {
+  doc.image(signatureImagePath, 50, doc.y, {
+    width: 200,
+    height: 50,
+  });
+  doc.moveDown(3);
+}
+
+// Draw a signature line explicitly aligned to the left margin
+doc.lineWidth(1).moveTo(50, doc.y).lineTo(250, doc.y).stroke();
+
+// Thank You Section
+doc.moveDown(2);
+doc.fontSize(10).text('Thank you for doing business with INNOVATION CONSORTIUM.', {
+  align: 'center', // Centered as required
+  italic: true,
+});
+
 
     doc.end();
 
