@@ -90,6 +90,8 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
 
     const invoiceData = invoiceDoc.data();
     const category = invoiceData.category || 'Uncategorized';
+    const items = invoiceData.items || []; // Ensure 'items' is defined here
+
 
     // Generate PDF
     const doc = new PDFDocument({
@@ -125,94 +127,169 @@ doc.fontSize(12)
 .text(`Client Address: ${invoiceData.clientAddress || 'N/A'}`)
 .text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`)
 
-// Ensure the document object is initialized and has a valid `y` position
-const tableStartY = doc.y; // Keep the current y position for reference
+  // Ensure the document object is initialized and has a valid `y` position
+  const tableStartY = doc.y + 30; // Adjust table position
 
-// Invoice ID and Date (unchanged positions)
-doc.text(`Invoice ID: ${invoiceId}`, doc.page.width - 200, tableStartY - 60, { align: 'right' });
-doc.text(`Date: ${invoiceData.date || 'N/A'}`, doc.page.width - 200, tableStartY - 40, { align: 'right' });
+    // Invoice ID and Date (unchanged positions)
+    doc.text(`Invoice ID: ${invoiceId}`, doc.page.width - 200, tableStartY - 60, { align: 'right' });
+    doc.text(`Date: ${invoiceData.date || 'N/A'}`, doc.page.width - 200, tableStartY - 40, { align: 'right' });
 
-// Define the table's starting X position
-// Define the table's starting X position
-const tableLeftMargin = doc.page.margins.left;
-const tableRightMargin = doc.page.margins.right;
-const availableTableWidth = doc.page.width - tableLeftMargin - tableRightMargin;
-const tableTop = tableStartY + 20;
-
-// Define table headers and rows based on the category
-let headers = [];
-let rows = [];
-let colWidths = [];
-
-if (category === 'Maintenance' || category === 'Fabrication' || category == 'Installation' || category == 'Designing') {
-  headers = ['Number', 'Description', 'No of Workers', 'No of Days', 'Hours in Day', 'Rate (UGX)', 'Amount (UGX)'];
-  colWidths = [60, 200, 80, 80, 80, 100, 100];
-  rows = Array.isArray(invoiceData.items)
-    ? invoiceData.items.map((item) => [
-        item.number || 'N/A',
-        item.description || 'N/A',
-        item.numberOfWorkers || 0,
-        item.numberOfDays || 0,
-        item.hoursInDay || 0,
-        (item.rate || 0).toFixed(2),
-        (item.amount || 0).toFixed(2),
-      ])
-    : [];
-} else if (category === 'Supply' || category === 'Machining' || category === 'General') {
-  headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
-  colWidths = [60, 300, 100, 100, 100];
-  rows = Array.isArray(invoiceData.items)
-    ? invoiceData.items.map((item) => [
-        item.number || 'N/A',
-        item.description || 'N/A',
-        item.quantity || 0,
-        (item.rate || 0).toFixed(2),
-        (item.amount || 0).toFixed(2),
-      ])
-    : [];
-}
-
-const totalAmount = invoiceData.totalAmount || rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0);
-
-// Draw Table
-let currentY = tableStartY;
-
-// Draw headers
-doc.font('Helvetica-Bold').fontSize(10);
-headers.forEach((header, i) => {
-  doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, colWidths[i], 20).stroke();
-  doc.text(header, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, { width: colWidths[i] - 10, align: 'center' });
-});
-
-currentY += 20; // Move to next row
-
-// Draw rows
+     // Define headers and column widths
+     let headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
+     let colWidths = [100, 200, 90, 150, 150];
+     let rows = items.map((item) => [
+       item.number || 'N/A',
+       item.description || 'N/A',
+       item.quantity || 0,
+       (item.rate || 0).toFixed(2),
+       (item.amount || 0).toFixed(2),
+     ]);
+ 
+     // Adjust headers and rows for specific categories
+     if (['Maintenance', 'Fabrication', 'Installation', 'Designing'].includes(category)) {
+       headers = ['Number', 'Description', 'No of Workers', 'No of Days', 'Hours in Day', 'Rate (UGX)', 'Amount (UGX)'];
+       colWidths = [90, 150, 80, 80, 80, 100, 120];
+       rows = items.map((item) => [
+         item.number || 'N/A',
+         item.description || 'N/A',
+         item.numberOfWorkers || 0,
+         item.numberOfDays || 0,
+         item.hoursInDay || 0,
+         (item.rate || 0).toFixed(2),
+         (item.amount || 0).toFixed(2),
+       ]);
+     } else if (['Supply', 'Machining'].includes(category)) {
+       headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
+       colWidths = [100, 200, 90, 150, 150];
+       rows = items.map((item) => [
+         item.number || 'N/A',
+         item.description || 'N/A',
+         item.quantity || 0,
+         (item.rate || 0).toFixed(2),
+         (item.amount || 0).toFixed(2),
+       ]);
+     }
+ 
+     // Draw the table
+     let currentY = tableStartY + 10;
+ 
+     // Table header
+     doc.font('Helvetica-Bold').fontSize(10);
+     headers.forEach((header, i) => {
+       const columnWidth = colWidths[i] || 100;
+       doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+       doc.text(header, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+         width: columnWidth - 10,
+         align: 'center',
+       });
+     });
+     currentY += 20;
+ 
+     // Table rows
+     // Draw the Table Rows
 doc.font('Helvetica').fontSize(10);
 rows.forEach((row) => {
   row.forEach((cell, i) => {
-    doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, colWidths[i], 20).stroke();
-    doc.text(cell.toString(), 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, { width: colWidths[i] - 10, align: 'center' });
-  });
-  currentY += 20; // Move to next row
-});
-
-// Draw Total Amount Row
-doc.font('Helvetica-Bold');
-    doc.rect(50, currentY, colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], 20).stroke(); // Extend "Total Amount" label across two columns
-    doc.text('Total Amount:', 55, currentY + 5, { align: 'left' });
-    doc.rect(50 + colWidths.slice(0, -1).reduce((a, b) => a + b, 0), currentY, colWidths[colWidths.length - 1], 20).stroke();
-    doc.text(totalAmount.toFixed(2), 55 + colWidths.slice(0, -1).reduce((a, b) => a + b, 0), currentY + 5, {
-      width: colWidths[colWidths.length - 1] - 10,
+    const columnWidth = colWidths[i] || 100; // Default column width if undefined
+    const cellValue = cell !== undefined && cell !== null ? cell.toString() : ''; // Ensure no undefined values
+    doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+    doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+      width: columnWidth - 10,
       align: 'center',
     });
+  });
+  currentY += 20;
+});
 
-    currentY += 40; // Add space for total amount in words
+// Add Total Amount Row for Categories That Require It
+if (['Supply', 'Fabrication', 'Machining', 'Designing', 'Maintenance'].includes(category)) {
+  const totalAmount = rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0); // Sum the last column
+  doc.font('Helvetica-Bold').fontSize(10);
 
-    // Total Amount in Words
-    doc.text(`Total Amount in Words: ${numberToWords(Math.floor(totalAmount))} Uganda Shillings Only`, 50, currentY, {
-      align: 'left',
-      width: doc.page.width - 100,
+  // Render "Total Amount" label and value
+  doc.font('Helvetica-Bold').fontSize(10);
+
+  // Draw the label in the first column (aligned below "Number")
+  const labelX = 50; // Start position for the "Number" column
+  const valueX = doc.page.width - 150; // End position for the "Amount (UGX)" column
+  const rowHeight = 20;
+
+  // Render the "Total Amount" label
+  doc.text('Total Amount', labelX, currentY + 5, {
+    align: 'center',
+    width: colWidths[0], // Same width as the "Number" column
+  });
+
+  // Render the total row
+  headers.forEach((header, i) => {
+    const columnWidth = colWidths[i] || 100; // Default column width if undefined
+    const cellValue = i === headers.length - 1 ? totalAmount.toFixed(2) : ''; // Display total only in the last column
+    doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+    doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+      width: columnWidth - 10,
+      align: 'center',
     });
+  });
+
+  currentY += 20;
+}
+
+ 
+if (category === 'General') {
+  currentY += 20; // Add spacing
+
+  // Add extra rows for Consumables, Labour, Sub-Total 2, VAT, and Grand Total
+  const generalRows = [
+    { label: 'Consumables', value: items.reduce((sum, item) => sum + (item.consumables || 0), 0) },
+    { label: 'Labour', value: items.reduce((sum, item) => sum + (item.labour || 0), 0) },
+    { label: 'Sub-Total 2', value: items.reduce((sum, item) => sum + (item.subTotal2 || 0), 0) },
+    { label: 'VAT', value: items.reduce((sum, item) => sum + (item.vat || 0), 0) },
+    { label: 'Grand Total', value: items.reduce((sum, item) => sum + (item.grandTotal || 0), 0) },
+  ];
+
+  generalRows.forEach((row) => {
+    headers.forEach((header, i) => {
+      const columnWidth = colWidths[i] || 100;
+      let cellValue = '';
+
+      // Bold the label in the "Number" column
+      if (i === 0) {
+        doc.font('Helvetica-Bold'); // Set bold font for labels
+        cellValue = row.label;
+      } else if (i === headers.length - 1) {
+        doc.font('Helvetica'); // Set back to normal font for values
+        cellValue = row.value.toFixed(2);
+      }
+
+      doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+      doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+        width: columnWidth - 10,
+        align: 'center',
+      });
+    });
+    currentY += 20;
+  });
+}
+
+
+  // Total Amount in Words (All Categories Except General)
+if (category !== 'General') {
+  const totalAmount = rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0);
+  const totalInWords = numberToWords(Math.floor(totalAmount));
+
+  currentY += 40; // Add spacing below the table
+  doc.font('Helvetica-Bold').fontSize(12).text(
+    `Total Amount in Words: ${totalInWords} Uganda Shillings Only`,
+    50, // Align to the left-hand side of the page
+    currentY,
+    {
+      align: 'left', // Left alignment
+    }
+  );
+
+  currentY += 20; // Add spacing after the "Total Amount in Words"
+}
+
 
 // Signature Section
 doc.moveDown(2);
