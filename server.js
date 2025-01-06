@@ -89,6 +89,7 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     }
 
     const invoiceData = invoiceDoc.data();
+    const category = invoiceData.category || 'Uncategorized';
 
     // Generate PDF
     const doc = new PDFDocument({
@@ -132,87 +133,86 @@ doc.text(`Invoice ID: ${invoiceId}`, doc.page.width - 200, tableStartY - 60, { a
 doc.text(`Date: ${invoiceData.date || 'N/A'}`, doc.page.width - 200, tableStartY - 40, { align: 'right' });
 
 // Define the table's starting X position
+// Define the table's starting X position
 const tableLeftMargin = doc.page.margins.left;
 const tableRightMargin = doc.page.margins.right;
 const availableTableWidth = doc.page.width - tableLeftMargin - tableRightMargin;
-const columnCount = 5;
-const colWidth = availableTableWidth / columnCount;
 const tableTop = tableStartY + 20;
-const itemMargin = 5;
 
-// Draw Table Headers
-doc.fontSize(10).font('Helvetica-Bold');
-const headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
-headers.forEach((header, index) => {
-  const colX = tableLeftMargin + colWidth * index;
-  doc.rect(colX, tableTop, colWidth, 25).stroke();
-  doc.text(header, colX + itemMargin, tableTop + 7, {
-    width: colWidth - itemMargin * 2,
-    align: 'center',
-  });
-});
+// Define table headers and rows based on the category
+let headers = [];
+let rows = [];
+let colWidths = [];
 
-// Table Rows
-let rowY = tableTop + 25;
-doc.font('Helvetica').fontSize(10);
-
-if (Array.isArray(invoiceData.items)) {
-  invoiceData.items.forEach((item) => {
-    const rowHeight = 25;
-
-    const cells = [
-      item.number || 'N/A',
-      item.description || 'N/A',
-      `${item.quantity || 0}`,
-      `${item.rate?.toFixed(2) || '0.00'}`,
-      `${item.amount?.toFixed(2) || '0.00'}`,
-    ];
-
-    cells.forEach((text, index) => {
-      const colX = tableLeftMargin + colWidth * index;
-      doc.rect(colX, rowY, colWidth, rowHeight).stroke();
-      doc.text(text, colX + itemMargin, rowY + 7, {
-        width: colWidth - itemMargin * 2,
-        align: 'center',
-      });
-    });
-
-    rowY += rowHeight;
-  });
-} else {
-  doc.text('No items available.', tableLeftMargin, rowY + 5);
+if (category === 'Maintenance' || category === 'Fabrication' || category == 'Installation' || category == 'Designing') {
+  headers = ['Number', 'Description', 'No of Workers', 'No of Days', 'Hours in Day', 'Rate (UGX)', 'Amount (UGX)'];
+  colWidths = [60, 200, 80, 80, 80, 100, 100];
+  rows = Array.isArray(invoiceData.items)
+    ? invoiceData.items.map((item) => [
+        item.number || 'N/A',
+        item.description || 'N/A',
+        item.numberOfWorkers || 0,
+        item.numberOfDays || 0,
+        item.hoursInDay || 0,
+        (item.rate || 0).toFixed(2),
+        (item.amount || 0).toFixed(2),
+      ])
+    : [];
+} else if (category === 'Supply' || category === 'Machining' || category === 'General') {
+  headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
+  colWidths = [60, 300, 100, 100, 100];
+  rows = Array.isArray(invoiceData.items)
+    ? invoiceData.items.map((item) => [
+        item.number || 'N/A',
+        item.description || 'N/A',
+        item.quantity || 0,
+        (item.rate || 0).toFixed(2),
+        (item.amount || 0).toFixed(2),
+      ])
+    : [];
 }
 
-// Add Total Amount in the Table
-const totalAmount = invoiceData.totalAmount || 0;
-const totalAmountRow = [
-  'Total Amount',
-  '',
-  '',
-  '',
-  `${totalAmount.toFixed(2)}`,
-];
+const totalAmount = invoiceData.totalAmount || rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0);
 
-totalAmountRow.forEach((text, index) => {
-  const colX = tableLeftMargin + colWidth * index;
-  doc.rect(colX, rowY, colWidth, 25).stroke();
-  doc.font(index === 0 || index === 4 ? 'Helvetica-Bold' : 'Helvetica');
-  doc.text(text, colX + itemMargin, rowY + 7, {
-    width: colWidth - itemMargin * 2,
-    align: 'center',
-  });
+// Draw Table
+let currentY = tableStartY;
+
+// Draw headers
+doc.font('Helvetica-Bold').fontSize(10);
+headers.forEach((header, i) => {
+  doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, colWidths[i], 20).stroke();
+  doc.text(header, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, { width: colWidths[i] - 10, align: 'center' });
 });
 
-rowY += 25;
+currentY += 20; // Move to next row
 
- // Grand Total in Words
-doc.moveDown(2);
-doc.fontSize(12).font('Helvetica-Bold');
-doc.text(
-  `Total amount in words: ${numberToWords(Math.floor(totalAmount))} Uganda Shillings Only`,
-  50, // Explicitly setting the left margin
-  doc.y
-);
+// Draw rows
+doc.font('Helvetica').fontSize(10);
+rows.forEach((row) => {
+  row.forEach((cell, i) => {
+    doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, colWidths[i], 20).stroke();
+    doc.text(cell.toString(), 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, { width: colWidths[i] - 10, align: 'center' });
+  });
+  currentY += 20; // Move to next row
+});
+
+// Draw Total Amount Row
+doc.font('Helvetica-Bold');
+    doc.rect(50, currentY, colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3], 20).stroke(); // Extend "Total Amount" label across two columns
+    doc.text('Total Amount:', 55, currentY + 5, { align: 'left' });
+    doc.rect(50 + colWidths.slice(0, -1).reduce((a, b) => a + b, 0), currentY, colWidths[colWidths.length - 1], 20).stroke();
+    doc.text(totalAmount.toFixed(2), 55 + colWidths.slice(0, -1).reduce((a, b) => a + b, 0), currentY + 5, {
+      width: colWidths[colWidths.length - 1] - 10,
+      align: 'center',
+    });
+
+    currentY += 40; // Add space for total amount in words
+
+    // Total Amount in Words
+    doc.text(`Total Amount in Words: ${numberToWords(Math.floor(totalAmount))} Uganda Shillings Only`, 50, currentY, {
+      align: 'left',
+      width: doc.page.width - 100,
+    });
 
 // Signature Section
 doc.moveDown(2);
@@ -317,7 +317,16 @@ app.get('/downloadSummary/:summaryId', async (req, res) => {
           .text(`% Markup: ${item.markupPercentage || 0}%`)
           .text(`Profit: UGX ${item.profit?.toFixed(2) || '0.00'}`)
           .text(`Rate: UGX ${item.rate?.toFixed(2) || '0.00'}`)
-          .text(`Amount: UGX ${item.amount?.toFixed(2) || '0.00'}`);
+          .text(`Amount: UGX ${item.amount?.toFixed(2) || '0.00'}`)
+          .text(`Sub-Total 1: UGX ${item.subTotal1?.toFixed(2) || '0.00'}`)
+          .text(`Consumables Percentage: ${item.consumablesPercentage|| 0}%`)
+          .text(`Consumables: UGX ${item.consumables?.toFixed(2) || '0.00'}`)
+          .text(`Labour Percentage: ${item.labourPercentage || 0}%`)
+          .text(`Labour: UGX ${item.labour?.toFixed(2) || '0.00'}`)
+          .text(`Sub-Total 2: ${item.subTotal2?.toFixed(2) || '0.00'}`)
+          .text(`VAT: ${item.vat?.toFixed(2) || '0.00'}`)
+          .text(`Grand Total: UGX ${item.grandTotal?.toFixed(2) || '0.00'}`)
+
       });
     } else {
       doc.moveDown().text('No items available.', { align: 'left' });
