@@ -128,168 +128,169 @@ doc.fontSize(12)
 .text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`)
 
   // Ensure the document object is initialized and has a valid `y` position
-  const tableStartY = doc.y + 30; // Adjust table position
+  const tableStartY = doc.y + 30;
 
-    // Invoice ID and Date (unchanged positions)
     doc.text(`Invoice ID: ${invoiceId}`, doc.page.width - 200, tableStartY - 60, { align: 'right' });
     doc.text(`Date: ${invoiceData.date || 'N/A'}`, doc.page.width - 200, tableStartY - 40, { align: 'right' });
 
-     // Define headers and column widths
-     let headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
-     let colWidths = [100, 200, 90, 150, 150];
-     let rows = items.map((item) => [
-       item.number || 'N/A',
-       item.description || 'N/A',
-       item.quantity || 0,
-       (item.rate || 0).toFixed(2),
-       (item.amount || 0).toFixed(2),
-     ]);
- 
-     // Adjust headers and rows for specific categories
-     if (['Maintenance', 'Fabrication', 'Installation', 'Designing'].includes(category)) {
-       headers = ['Number', 'Description', 'No of Workers', 'No of Days', 'Hours in Day', 'Rate (UGX)', 'Amount (UGX)'];
-       colWidths = [90, 150, 80, 80, 80, 100, 120];
-       rows = items.map((item) => [
-         item.number || 'N/A',
-         item.description || 'N/A',
-         item.numberOfWorkers || 0,
-         item.numberOfDays || 0,
-         item.hoursInDay || 0,
-         (item.rate || 0).toFixed(2),
-         (item.amount || 0).toFixed(2),
-       ]);
-     } else if (['Supply', 'Machining'].includes(category)) {
-       headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
-       colWidths = [100, 200, 90, 150, 150];
-       rows = items.map((item) => [
-         item.number || 'N/A',
-         item.description || 'N/A',
-         item.quantity || 0,
-         (item.rate || 0).toFixed(2),
-         (item.amount || 0).toFixed(2),
-       ]);
-     }
- 
-     // Draw the table
-     let currentY = tableStartY + 10;
- 
-     // Table header
-     doc.font('Helvetica-Bold').fontSize(10);
-     headers.forEach((header, i) => {
-       const columnWidth = colWidths[i] || 100;
-       doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
-       doc.text(header, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
-         width: columnWidth - 10,
-         align: 'center',
-       });
-     });
-     currentY += 20;
- 
-     // Table rows
-     // Draw the Table Rows
-doc.font('Helvetica').fontSize(10);
-rows.forEach((row) => {
-  row.forEach((cell, i) => {
-    const columnWidth = colWidths[i] || 100; // Default column width if undefined
-    const cellValue = cell !== undefined && cell !== null ? cell.toString() : ''; // Ensure no undefined values
-    doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
-    doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
-      width: columnWidth - 10,
-      align: 'center',
-    });
-  });
-  currentY += 20;
-});
+    // Define headers and rows based on category
+    let headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
+    let colWidths = [100, 200, 90, 150, 150];
+    let rows = items.map((item) => [
+      item.number || 'N/A',
+      item.description || 'N/A',
+      item.quantity || 0,
+      (item.rate || 0).toFixed(2),
+      (item.amount || 0).toFixed(2),
+    ]);
 
-// Add Total Amount Row for Categories That Require It
-if (['Supply', 'Fabrication', 'Machining', 'Designing', 'Maintenance'].includes(category)) {
-  const totalAmount = rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0); // Sum the last column
-  doc.font('Helvetica-Bold').fontSize(10);
+    if (['Maintenance', 'Fabrication', 'Installation', 'Designing'].includes(category)) {
+      headers = ['Number', 'Description', 'Q. of Workers', 'No of Workers', 'Days', 'Hours/Day', 'Rate', 'Amount'];
+      colWidths = [50, 120, 120, 90, 50, 80, 80, 100];
+      rows = items.map((item) => [
+        item.number || 'N/A',
+        item.description || 'N/A',
+        item.qualificationOfWorkers || 'N/A',
+        item.numberOfWorkers || 0,
+        item.numberOfDays || 0,
+        item.hoursInDay || 0,
+        (item.rate || 0).toFixed(2),
+        (item.amount || 0).toFixed(2),
+      ]);
+    }
 
-  // Render "Total Amount" label and value
-  doc.font('Helvetica-Bold').fontSize(10);
+    // Draw the table
+    let currentY = tableStartY + 10;
 
-  // Draw the label in the first column (aligned below "Number")
-  const labelX = 50; // Start position for the "Number" column
-  const valueX = doc.page.width - 150; // End position for the "Amount (UGX)" column
-  const rowHeight = 20;
-
-  // Render the "Total Amount" label
-  doc.text('Total Amount', labelX, currentY + 5, {
-    align: 'center',
-    width: colWidths[0], // Same width as the "Number" column
-  });
-
-  // Render the total row
-  headers.forEach((header, i) => {
-    const columnWidth = colWidths[i] || 100; // Default column width if undefined
-    const cellValue = i === headers.length - 1 ? totalAmount.toFixed(2) : ''; // Display total only in the last column
-    doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
-    doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
-      width: columnWidth - 10,
-      align: 'center',
-    });
-  });
-
-  currentY += 20;
-}
-
- 
-if (category === 'General') {
-  currentY += 20; // Add spacing
-
-  // Add extra rows for Consumables, Labour, Sub-Total 2, VAT, and Grand Total
-  const generalRows = [
-    { label: 'Consumables', value: items.reduce((sum, item) => sum + (item.consumables || 0), 0) },
-    { label: 'Labour', value: items.reduce((sum, item) => sum + (item.labour || 0), 0) },
-    { label: 'Sub-Total 2', value: items.reduce((sum, item) => sum + (item.subTotal2 || 0), 0) },
-    { label: 'VAT', value: items.reduce((sum, item) => sum + (item.vat || 0), 0) },
-    { label: 'Grand Total', value: items.reduce((sum, item) => sum + (item.grandTotal || 0), 0) },
-  ];
-
-  generalRows.forEach((row) => {
+    doc.font('Helvetica-Bold').fontSize(10);
     headers.forEach((header, i) => {
       const columnWidth = colWidths[i] || 100;
-      let cellValue = '';
-
-      // Bold the label in the "Number" column
-      if (i === 0) {
-        doc.font('Helvetica-Bold'); // Set bold font for labels
-        cellValue = row.label;
-      } else if (i === headers.length - 1) {
-        doc.font('Helvetica'); // Set back to normal font for values
-        cellValue = row.value.toFixed(2);
-      }
-
       doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
-      doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+      doc.text(header, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
         width: columnWidth - 10,
         align: 'center',
       });
     });
     currentY += 20;
-  });
-}
 
+    rows.forEach((row) => {
+      row.forEach((cell, i) => {
+        const columnWidth = colWidths[i] || 100;
+        const cellValue = cell !== undefined && cell !== null ? cell.toString() : '';
+        doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+        doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+          width: columnWidth - 10,
+          align: 'center',
+        });
+      });
+      currentY += 20;
+    });
 
-  // Total Amount in Words (All Categories Except General)
-if (category !== 'General') {
-  const totalAmount = rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0);
-  const totalInWords = numberToWords(Math.floor(totalAmount));
+    // Add rows specific to "General" category
+    if (category === 'General') {
+      const generalRows = [
+        { label: 'Consumables', value: items.reduce((sum, item) => sum + (item.consumables || 0), 0) },
+        { label: 'Labour', value: items.reduce((sum, item) => sum + (item.labour || 0), 0) },
+        { label: 'Sub-Total 2', value: items.reduce((sum, item) => sum + (item.subTotal2 || 0), 0) },
+        { label: 'VAT(18%)', value: items.reduce((sum, item) => sum + (item.vat || 0), 0) },
+        { label: 'Grand Total', value: items.reduce((sum, item) => sum + (item.grandTotal || 0), 0) },
+      ];
 
-  currentY += 40; // Add spacing below the table
-  doc.font('Helvetica-Bold').fontSize(12).text(
-    `Total Amount in Words: ${totalInWords} Uganda Shillings Only`,
-    50, // Align to the left-hand side of the page
-    currentY,
-    {
-      align: 'left', // Left alignment
+      generalRows.forEach((row) => {
+        headers.forEach((header, i) => {
+          const columnWidth = colWidths[i] || 100;
+          let cellValue = '';
+
+          if (i === 1) {
+            doc.font('Helvetica-Bold');
+            cellValue = row.label;
+          }
+
+          if (i === headers.length - 1) {
+            doc.font('Helvetica-Bold');
+            cellValue = row.value.toFixed(2);
+          }
+
+          doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+          doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+            width: columnWidth - 10,
+            align: 'center',
+          });
+
+          if (i !== 1 && i !== headers.length - 1) {
+            doc.font('Helvetica');
+          }
+        });
+        currentY += 20;
+      });
+    } else {
+      // Add VAT and Grand Total rows for non-General categories
+      const grandTotal = rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0);
+      const vat = grandTotal * 0.18;
+      const additionalRows = [
+        { label: 'VAT(18%)', value: vat },
+        { label: 'Grand Total', value: grandTotal + vat },
+      ];
+
+      additionalRows.forEach((row) => {
+        headers.forEach((header, i) => {
+          const columnWidth = colWidths[i] || 100;
+          let cellValue = '';
+
+          if (i === 1) {
+            doc.font('Helvetica-Bold');
+            cellValue = row.label;
+          }
+
+          if (i === headers.length - 1) {
+            doc.font('Helvetica-Bold');
+            cellValue = row.value.toFixed(2);
+          }
+
+          doc.rect(50 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY, columnWidth, 20).stroke();
+          doc.text(cellValue, 55 + colWidths.slice(0, i).reduce((a, b) => a + b, 0), currentY + 5, {
+            width: columnWidth - 10,
+            align: 'center',
+          });
+
+          if (i !== 1 && i !== headers.length - 1) {
+            doc.font('Helvetica');
+          }
+        });
+        currentY += 20;
+      });
     }
-  );
 
-  currentY += 20; // Add spacing after the "Total Amount in Words"
+    // Compute the grandTotal
+let grandTotal = 0;
+
+// Handle General category separately
+if (category === 'General') {
+  // Calculate grandTotal for "General" category by summing subTotal2 and VAT
+  const subTotal2 = items.reduce((sum, item) => sum + (item.subTotal2 || 0), 0);
+  const vat = items.reduce((sum, item) => sum + (item.vat || 0), 0);
+  grandTotal = subTotal2 + vat; // Sum Sub-Total 2 and VAT
+} else {
+  // Calculate grandTotal for other categories
+  grandTotal = rows.reduce((sum, row) => sum + parseFloat(row[row.length - 1] || 0), 0);
+  const vat = grandTotal * 0.18; // Assuming 18% VAT
+  grandTotal += vat; // Add VAT to grandTotal
 }
 
+// Convert grandTotal to words
+const grandTotalInWords = numberToWords(Math.floor(grandTotal)); // Ensure integer value
+
+currentY += 20;
+
+    // Display grand total in words
+    doc.font('Helvetica-Bold')
+      .fontSize(12)
+      .moveDown(1)
+      .text(`Grand Total in Words: ${grandTotalInWords} Uganda Shillings Only`, 50, currentY, {
+        align: 'left',
+      });
+
+    currentY += 20;
 
 // Signature Section
 doc.moveDown(2);
