@@ -310,7 +310,7 @@ if (fs.existsSync(signatureImagePath)) {
 doc.lineWidth(1).moveTo(50, doc.y).lineTo(250, doc.y).stroke();
 
 // Thank You Section
-doc.moveDown(2);
+doc.moveDown(1);
 doc.fontSize(10).text('Thank you for doing business with INNOVATION CONSORTIUM.', {
   align: 'center', // Centered as required
   italic: true,
