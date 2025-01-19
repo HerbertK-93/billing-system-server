@@ -94,14 +94,15 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
 
 
     // Generate PDF
-    const doc = new PDFDocument({
-      margin: 50,
-      layout: 'landscape', // Change page orientation to landscape
-    });
-    const filePath = path.join(__dirname, `invoice_${invoiceId}.pdf`);
-    const stream = fs.createWriteStream(filePath);
+    const isPortrait = ['Supply', 'General', 'Machining'].includes(category);
+const doc = new PDFDocument({
+  margin: 50,
+  layout: isPortrait ? 'portrait' : 'landscape', // Set layout dynamically
+});
+const filePath = path.join(__dirname, `invoice_${invoiceId}.pdf`);
+const stream = fs.createWriteStream(filePath);
 
-    doc.pipe(stream);
+doc.pipe(stream);
 
     // Add logo in the top-left corner
     const logoPath = path.join(__dirname, 'public/assets/cornerlogo.png');
@@ -114,10 +115,10 @@ app.get('/downloadInvoice/:invoiceId', async (req, res) => {
     });
 
     // Header Section
-    doc.fontSize(25).text('INNOVATION CONSORTIUM LIMITED', { align: 'center' });
+    doc.fontSize(20).text('INNOVATION CONSORTIUM LIMITED', { align: 'center' });
     doc.fontSize(15).text('Think Different, Live Different', { align: 'center', italic: true });
     doc.fontSize(10).text('Location: Bweyogerere, Plot no. 732 Jinja Rd.', { align: 'center' });
-    doc.fontSize(10).text('Address: P.O BOX 31054 Kamapala (U)', { align: 'center' });
+    doc.fontSize(10).text('Address: P.O BOX 126001 Kamapala (U)', { align: 'center' });
     doc.fontSize(10).text('Tel: +256 753 434679  +256 772 905521', { align: 'center' });
     doc.moveDown(2);
 
@@ -128,14 +129,14 @@ doc.fontSize(12)
 .text(`Client Email: ${invoiceData.clientEmail || 'N/A'}`)
 
   // Ensure the document object is initialized and has a valid `y` position
-  const tableStartY = doc.y + 30;
+  const tableStartY = doc.y + 10;
 
     doc.text(`Invoice ID: ${invoiceId}`, doc.page.width - 200, tableStartY - 60, { align: 'right' });
     doc.text(`Date: ${invoiceData.date || 'N/A'}`, doc.page.width - 200, tableStartY - 40, { align: 'right' });
 
     // Define headers and rows based on category
     let headers = ['Number', 'Description', 'Quantity', 'Rate (UGX)', 'Amount (UGX)'];
-    let colWidths = [100, 200, 90, 150, 150];
+    let colWidths = [50, 200, 80, 80, 100];
     let rows = items.map((item) => [
       item.number || 'N/A',
       item.description || 'N/A',
@@ -191,7 +192,7 @@ doc.fontSize(12)
       const generalRows = [
         { label: 'Consumables', value: items.reduce((sum, item) => sum + (item.consumables || 0), 0) },
         { label: 'Labour', value: items.reduce((sum, item) => sum + (item.labour || 0), 0) },
-        { label: 'Sub-Total 2', value: items.reduce((sum, item) => sum + (item.subTotal2 || 0), 0) },
+        { label: 'Sub-Total', value: items.reduce((sum, item) => sum + (item.subTotal2 || 0), 0) },
         { label: 'VAT(18%)', value: items.reduce((sum, item) => sum + (item.vat || 0), 0) },
         { label: 'Grand Total', value: items.reduce((sum, item) => sum + (item.grandTotal || 0), 0) },
       ];
@@ -296,16 +297,18 @@ currentY += 20;
 doc.moveDown(2);
 doc.fontSize(12).text('Signature:', 50, doc.y); // Explicitly setting the left margin
 
-// Add signature image, ensuring it is aligned to the left
-const signatureImagePath = path.join(__dirname, 'public/assets/mdsign.png');
-if (fs.existsSync(signatureImagePath)) {
-  doc.image(signatureImagePath, 50, doc.y, {
-    width: 200,
-    height: 50,
-  });
-  doc.moveDown(3);
-}
+// comment out the signature image code
+// const signatureImagePath = path.join(__dirname, 'public/assets/mdsign.png');
+// if (fs.existsSync(signatureImagePath)) {
+//   doc.image(signatureImagePath, 50, doc.y, {
+//     width: 200,
+//     height: 50,
+//   });
+//   doc.moveDown(3);
+// }
 
+
+doc.moveDown(3); 
 // Draw a signature line explicitly aligned to the left margin
 doc.lineWidth(1).moveTo(50, doc.y).lineTo(250, doc.y).stroke();
 
