@@ -293,24 +293,14 @@ currentY += 20;
 
     currentY += 20;
 
-// Signature Section
-doc.moveDown(2);
-doc.fontSize(12).text('Signature:', 50, doc.y); // Explicitly setting the left margin
+// Add "Issued by" Section
+if (invoiceData.issuedBy) {
+  doc.moveDown(2);
+  doc.fontSize(12).text(`Issued by: ${invoiceData.issuedBy}`, 50, doc.y, {
+    align: 'left',
+  });
+}
 
-// comment out the signature image code
-// const signatureImagePath = path.join(__dirname, 'public/assets/mdsign.png');
-// if (fs.existsSync(signatureImagePath)) {
-//   doc.image(signatureImagePath, 50, doc.y, {
-//     width: 200,
-//     height: 50,
-//   });
-//   doc.moveDown(3);
-// }
-
-
-doc.moveDown(3); 
-// Draw a signature line explicitly aligned to the left margin
-doc.lineWidth(1).moveTo(50, doc.y).lineTo(250, doc.y).stroke();
 
 // Thank You Section
 doc.moveDown(1);
